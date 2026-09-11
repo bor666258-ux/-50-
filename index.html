@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>科创50追踪</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0b0e13;
+    --card: #141922;
+    --card-2: #1a2029;
+    --border: #232a36;
+    --text: #e8ebf1;
+    --muted: #7d8798;
+    --up: #ff4d4f;
+    --down: #0ecb81;
+    --mark: #f0b90b;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { max-width: 920px; margin: 0 auto; }
+
+  /* ---------- 顶部 ---------- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .title-wrap { display: flex; align-items: baseline; gap: 10px; }
+  .title-wrap h1 { font-size: 21px; font-weight: 600; letter-spacing: .5px; }
+  .title-wrap .code {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #f0b90b;
+    box-shadow: 0 0 0 0 rgba(240,185,11,.6);
+    animation: pulse 1.8s infinite;
+  }
+  .dot.ok  { background: var(--down); box-shadow: 0 0 8px rgba(14,203,129,.7); animation: none; }
+  .dot.err { background: var(--up);   box-shadow: 0 0 8px rgba(255,77,79,.7);  animation: none; }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(240,185,11,.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(240,185,11,0); }
+    100% { box-shadow: 0 0 0 0 rgba(240,185,11,0); }
+  }
+
+  /* ---------- 价格卡片 ---------- */
+  .card {
+    background: linear-gradient(180deg, var(--card) 0%, #11161e 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+  }
+
+  .price-main {
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .price {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+    transition: color .25s;
+  }
+
+  .change-group {
+    display: flex;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding-bottom: 6px;
+  }
+
+  .up   { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--muted); }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px 10px;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 5px; }
+  .meta-item .k { font-size: 12px; color: var(--muted); }
+  .meta-item .v {
+    font-size: 14.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Tab ---------- */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin: 22px 0 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 7px 20px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    transition: all .18s;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--card-2); color: var(--text); font-weight: 500; }
+
+  /* ---------- 图表 ---------- */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 6px 6px;
+  }
+
+  #chart { width: 100%; height: 360px; }
+
+  /* ---------- 通用区块 ---------- */
+  .block-section {
+    margin-top: 22px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .block-header h2 {
+    font-size: 14.5px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .block-header h2 span {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .block-legend {
+    display: flex;
+    gap: 14px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .block-legend span { display: flex; align-items: center; gap: 5px; }
+
+  .block-legend i {
+    width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+  }
+  .block-legend .lg-up   { background: var(--up); }
+  .block-legend .lg-down { background: var(--down); }
+  .block-legend .lg-mark { background: var(--mark); }
+
+  /* ---------- 成交量图 ---------- */
+  #volChart { width: 100%; height: 236px; padding: 4px 0 0; }
+
+  /* ---------- 宽基指数图 ---------- */
+  #indexChart { width: 100%; height: 356px; padding: 4px 0; }
+
+  /* ---------- 权重股资金流向表 ---------- */
+  .fund-summary {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+
+  .fund-summary b {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .fund-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fund-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 620px;
+  }
+
+  .fund-table thead th {
+    text-align: right;
+    padding: 10px 14px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    background: var(--card-2);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .fund-table thead th:first-child { text-align: left; padding-left: 20px; }
+
+  .fund-table tbody td {
+    padding: 11px 14px;
+    text-align: right;
+    border-bottom: 1px solid rgba(35,42,54,.55);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .fund-table tbody tr:last-child td { border-bottom: none; }
+  .fund-table tbody tr:hover { background: rgba(255,255,255,.022); }
+
+  .fund-table tbody td:first-child {
+    text-align: left;
+    padding-left: 20px;
+  }
+
+  .stock-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stock-name .nm { font-weight: 500; font-size: 13px; }
+  .stock-name .cd {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .weight-tag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--muted);
+    background: rgba(255,255,255,.05);
+    padding: 2px 7px;
+    border-radius: 5px;
+    min-width: 46px;
+    text-align: center;
+  }
+
+  .flow-bar-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+    min-width: 100px;
+  }
+
+  .flow-bar {
+    height: 4px;
+    border-radius: 2px;
+    min-width: 2px;
+    max-width: 60px;
+    transition: width .3s;
+  }
+
+  .flow-bar.in  { background: var(--up); }
+  .flow-bar.out { background: var(--down); }
+
+  .flow-val {
+    font-size: 12.5px;
+    font-weight: 500;
+    min-width: 66px;
+    text-align: right;
+  }
+
+  .loading-row td {
+    text-align: center !important;
+    color: var(--muted);
+    padding: 30px 14px !important;
+    font-size: 12.5px;
+  }
+
+  /* ---------- 底部 ---------- */
+  .footer {
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn-refresh {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all .18s;
+    font-family: inherit;
+  }
+  .btn-refresh:hover { color: var(--text); border-color: #364052; }
+  .btn-refresh:active { transform: scale(.97); }
+  .btn-refresh:disabled { opacity: .45; cursor: not-allowed; }
+
+  @media (max-width: 640px) {
+    body { padding: 16px 12px 40px; }
+    .card { padding: 18px 16px; border-radius: 14px; }
+    .price { font-size: 36px; }
+    .change-group { font-size: 14px; gap: 9px; }
+    .meta-grid { grid-template-columns: repeat(2, 1fr); gap: 12px 8px; }
+    #chart { height: 280px; }
+    #volChart { height: 200px; }
+    #indexChart { height: 330px; }
+    .title-wrap h1 { font-size: 18px; }
+    .block-header { padding: 12px 14px; }
+    .fund-table thead th:first-child,
+    .fund-table tbody td:first-child { padding-left: 14px; }
+    .fund-table thead th,
+    .fund-table tbody td { padding-left: 10px; padding-right: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div class="title-wrap">
+      <h1>科创50追踪</h1>
+      <span class="code">000688.SH</span>
+    </div>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">连接中…</span>
+    </div>
+  </header>
+
+  <!-- 科创50 行情 -->
+  <section class="card">
+    <div class="price-main">
+      <div class="price" id="price">--</div>
+      <div class="change-group">
+        <span id="change">--</span>
+        <span id="changePct">--</span>
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-item"><span class="k">今开</span><span class="v" id="mOpen">--</span></div>
+      <div class="meta-item"><span class="k">昨收</span><span class="v" id="mPrev">--</span></div>
+      <div class="meta-item"><span class="k">最高</span><span class="v" id="mHigh">--</span></div>
+      <div class="meta-item"><span class="k">最低</span><span class="v" id="mLow">--</span></div>
+      <div class="meta-item"><span class="k">成交量</span><span class="v" id="mVol">--</span></div>
+      <div class="meta-item"><span class="k">成交额</span><span class="v" id="mAmt">--</span></div>
+      <div class="meta-item"><span class="k">振幅</span><span class="v" id="mAmp">--</span></div>
+      <div class="meta-item"><span class="k">更新时间</span><span class="v" id="mTime">--</span></div>
+    </div>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="minute">分时</button>
+    <button class="tab" data-tab="kline">日K</button>
+  </nav>
+
+  <section class="chart-card">
+    <div id="chart"></div>
+  </section>
+
+  <!-- ========== 成交量 · 历史标记 ========== -->
+  <section class="block-section">
+    <div class="block-header">
+      <h2>科创50 · 成交量 <span id="volTime">--</span></h2>
+      <div class="block-legend">
+        <span><i class="lg-up"></i>涨</span>
+        <span><i class="lg-down"></i>跌</span>
+        <span><i class="lg-mark"></i>历史标记</span>
+      </div>
+    </div>
+    <div id="volChart"></div>
+  </section>
+
+  <!-- ========== 宽基指数 · 90日涨跌幅 ========== -->
+  <section class="block-section">
+    <div class="block-header">
+      <h2>宽基指数 · 近90日涨跌幅 <span id="indexBarTime">--</span></h2>
+      <div class="block-legend">
+        <span><i class="lg-up"></i>上涨</span>
+        <span><i class="lg-down"></i>下跌</span>
+      </div>
+    </div>
+    <div id="indexChart"></div>
+  </section>
+
+  <!-- ========== 权重股资金流向 ========== -->
+  <section class="block-section">
+    <div class="block-header">
+      <h2>前10大权重股 · 资金流向 <span id="fundTime">--</span></h2>
+      <div class="fund-summary" id="fundSummary"></div>
+    </div>
+    <div class="fund-table-wrap">
+      <table class="fund-table">
+        <thead>
+          <tr>
+            <th>股票</th>
+            <th>权重</th>
+            <th>最新价</th>
+            <th>涨跌幅</th>
+            <th>主力净流入</th>
+          </tr>
+        </thead>
+        <tbody id="fundBody">
+          <tr class="loading-row"><td colspan="5">加载中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="footer">
+    <span>数据来源：腾讯财经 · 延迟行情，仅供参考，不构成投资建议</span>
+    <button class="btn-refresh" id="btnRefresh">手动刷新</button>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   配置
+   ========================================================= */
+const CODE       = 'sh000688';          // 科创50指数
+const UP         = '#ff4d4f';
+const DOWN       = '#0ecb81';
+const FLAT       = '#7d8798';
+const MARK       = '#f0b90b';
+const QUOTE_MS   = 5000;                // 行情刷新间隔
+const MINUTE_MS  = 15000;               // 分时刷新间隔
+const FUND_MS    = 30000;               // 资金流向刷新间隔
+const INDEX90_MS = 60000;               // 宽基90日数据刷新间隔
+const KLINE_MS   = 60000;               // K线（成交量）刷新间隔
+
+/* K线取数天数：需 >= 150 天，才能覆盖 150 日最低量 + MA90 */
+const KLINE_DAYS = 250;
+/* 成交量图显示最近多少天 */
+const VOL_SHOW_DAYS = 90;
+/* 高倍放量判定阈值：当日成交量 / 前5日均量 */
+const VOL_SURGE_RATIO = 2.5;
+
+/* 宽基指数列表 */
+const INDICES = [
+  { code: 'sh000001', name: '上证指数' },
+  { code: 'sz399001', name: '深证成指' },
+  { code: 'sz399006', name: '创业板指' },
+  { code: 'sh000688', name: '科创50'  },
+  { code: 'sh000300', name: '沪深300' },
+  { code: 'sh000016', name: '上证50'  },
+  { code: 'sh000905', name: '中证500' },
+  { code: 'sh000852', name: '中证1000' },
+  { code: 'bj899050', name: '北证50'  }
+];
+
+/* 前10大权重股（权重数据来自公开资料，可手动更新） */
+const WEIGHT_STOCKS = [
+  { code: 'sh688256', name: '寒武纪',   weight: 9.50 },
+  { code: 'sh688012', name: '中微公司', weight: 8.70 },
+  { code: 'sh688981', name: '中芯国际', weight: 8.50 },
+  { code: 'sh688041', name: '海光信息', weight: 7.80 },
+  { code: 'sh688008', name: '澜起科技', weight: 6.90 },
+  { code: 'sh688498', name: '源杰科技', weight: 4.80 },
+  { code: 'sh688072', name: '拓荆科技', weight: 4.20 },
+  { code: 'sh688347', name: '华虹宏力', weight: 3.60 },
+  { code: 'sh688120', name: '华海清科', weight: 3.40 },
+  { code: 'sh688361', name: '中科飞测', weight: 3.10 }
+];
+
+/* =========================================================
+   工具函数
+   ========================================================= */
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload  = () => { s.remove(); resolve(); };
+    s.onerror = () => { s.remove(); reject(new Error('网络请求失败')); };
+    document.head.appendChild(s);
+  });
+}
+
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+
+function fmt(n, d = 2) {
+  return (n === null || n === undefined || !Number.isFinite(n)) ? '--' : n.toFixed(d);
+}
+
+function fmtSigned(n, d = 2) {
+  if (n === null || !Number.isFinite(n)) return '--';
+  return (n > 0 ? '+' : '') + n.toFixed(d);
+}
+
+function fmtVol(hand) {
+  if (hand === null) return '--';
+  if (hand >= 1e8) return (hand / 1e8).toFixed(2) + '亿手';
+  if (hand >= 1e4) return (hand / 1e4).toFixed(2) + '万手';
+  return Math.round(hand) + '手';
+}
+
+/* 成交量坐标轴/提示：返回带单位的字符串 */
+function fmtVolUnit(v) {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '--';
+  const abs = Math.abs(v);
+  if (abs >= 1e8) return (v / 1e8).toFixed(2) + '亿';
+  if (abs >= 1e4) return (v / 1e4).toFixed(1) + '万';
+  return String(Math.round(v));
+}
+
+function fmtAmt(wan) {
+  if (wan === null) return '--';
+  if (wan >= 1e4) return (wan / 1e4).toFixed(2) + '亿';
+  return Math.round(wan) + '万';
+}
+
+function fmtFlow(wan) {
+  if (wan === null || !Number.isFinite(wan)) return '--';
+  const abs  = Math.abs(wan);
+  const sign = wan > 0 ? '+' : wan < 0 ? '-' : '';
+  if (abs >= 1e8) return sign + (abs / 1e8).toFixed(2) + '亿';
+  if (abs >= 1e4) return sign + (abs / 1e4).toFixed(2) + '万';
+  return sign + Math.round(abs) + '万';
+}
+
+function fmtTime14(s) {
+  if (!s || String(s).length < 14) return '--';
+  s = String(s);
+  return s.slice(8, 10) + ':' + s.slice(10, 12) + ':' + s.slice(12, 14);
+}
+
+function fmtHM(t) {
+  t = String(t);
+  if (t.length < 4) return t;
+  return t.slice(0, 2) + ':' + t.slice(2, 4);
+}
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+const $ = id => document.getElementById(id);
+
+/* =========================================================
+   状态
+   ========================================================= */
+let quote        = null;
+let minutePoints = null;
+let minutePrev   = null;
+let klineRows    = null;
+let klineLoading = false;
+let currentTab   = 'minute';
+let lastMinuteTs = 0;
+let lastFundTs   = 0;
+let lastIndex90Ts = 0;
+let lastKlineTs  = 0;
+let busy         = false;
+let fundData     = null;
+let indexBarData = null;
+
+/* =========================================================
+   图表实例
+   ========================================================= */
+const chart      = echarts.init($('chart'), null, { renderer: 'canvas' });
+const volChart   = echarts.init($('volChart'), null, { renderer: 'canvas' });
+const indexChart = echarts.init($('indexChart'), null, { renderer: 'canvas' });
+
+window.addEventListener('resize', () => {
+  chart.resize();
+  volChart.resize();
+  indexChart.resize();
+});
+
+indexChart.showLoading({
+  text: '加载宽基指数…',
+  color: '#4a90d9',
+  textColor: '#7d8798',
+  maskColor: 'rgba(20,25,34,.55)',
+  fontSize: 13
+});
+
+volChart.showLoading({
+  text: '加载成交量…',
+  color: '#4a90d9',
+  textColor: '#7d8798',
+  maskColor: 'rgba(20,25,34,.55)',
+  fontSize: 13
+});
+
+/* =========================================================
+   1. 科创50 实时行情
+   ========================================================= */
+async function fetchQuote() {
+  await loadScript(`https://qt.gtimg.cn/q=${CODE}&_t=${Date.now()}`);
+  const raw = window['v_' + CODE];
+  if (!raw) throw new Error('未获取到行情数据');
+
+  const p = String(raw).split('~');
+
+  const price     = num(p[3]);
+  const prevClose = num(p[4]);
+  let change      = num(p[31]);
+  let changePct   = num(p[32]);
+
+  if ((change === null || changePct === null) && price !== null && prevClose) {
+    change    = price - prevClose;
+    changePct = (change / prevClose) * 100;
+  }
+
+  quote = {
+    name:      p[1] || '科创50',
+    price,
+    prevClose,
+    open:      num(p[5]),
+    high:      num(p[33]),
+    low:       num(p[34]),
+    volume:    num(p[6]),
+    amount:    num(p[37]),
+    amplitude: num(p[43]),
+    change,
+    changePct,
+    time:      p[30] || ''
+  };
+
+  renderQuote();
+}
+
+function renderQuote() {
+  const q = quote;
+  if (!q) return;
+
+  const cls = q.changePct > 0 ? 'up' : q.changePct < 0 ? 'down' : 'flat';
+
+  $('price').textContent = fmt(q.price, 2);
+  $('price').className   = 'price ' + cls;
+
+  $('change').textContent    = fmtSigned(q.change, 2);
+  $('change').className      = cls;
+  $('changePct').textContent = fmtSigned(q.changePct, 2) + '%';
+  $('changePct').className   = cls;
+
+  $('mOpen').textContent = fmt(q.open, 2);
+  $('mPrev').textContent = fmt(q.prevClose, 2);
+  $('mHigh').textContent = fmt(q.high, 2);
+  $('mHigh').className   = 'v up';
+  $('mLow').textContent  = fmt(q.low, 2);
+  $('mLow').className    = 'v down';
+
+  $('mVol').textContent  = fmtVol(q.volume);
+  $('mAmt').textContent  = fmtAmt(q.amount);
+  $('mAmp').textContent  = q.amplitude !== null ? q.amplitude.toFixed(2) + '%' : '--';
+  $('mTime').textContent = fmtTime14(q.time);
+}
+
+/* =========================================================
+   2. 分时数据
+   ========================================================= */
+async function fetchMinute() {
+  await loadScript(
+    `https://web.ifzq.gtimg.cn/appstock/app/minute/query?_var=__minuteData&code=${CODE}&_t=${Date.now()}`
+  );
+
+  const d    = window.__minuteData;
+  const node = d && d.data && d.data[CODE];
+  if (!node) throw new Error('分时数据为空');
+
+  const list = (node.data && node.data.data) || [];
+  const points = list
+    .map(s => {
+      const a = String(s).trim().split(/\s+/);
+      return { t: a[0], p: parseFloat(a[1]) };
+    })
+    .filter(x => Number.isFinite(x.p));
+
+  if (!points.length) throw new Error('分时数据为空');
+
+  let prev = quote ? quote.prevClose : null;
+  const qt = node.qt && node.qt[CODE];
+  if (qt && qt[4] !== undefined) {
+    const v = parseFloat(qt[4]);
+    if (Number.isFinite(v)) prev = v;
+  }
+  if (!prev) prev = points[0].p;
+
+  minutePoints = points;
+  minutePrev   = prev;
+
+  if (currentTab === 'minute') renderMinuteChart();
+}
+
+function renderMinuteChart() {
+  if (!minutePoints) return;
+
+  const points    = minutePoints;
+  const prevClose = minutePrev;
+  const times     = points.map(x => fmtHM(x.t));
+  const prices    = points.map(x => x.p);
+  const last      = prices[prices.length - 1];
+  const color     = last >= prevClose ? UP : DOWN;
+
+  const dev   = Math.max(...prices.map(p => Math.abs(p - prevClose)), prevClose * 0.001);
+  const range = dev * 1.15;
+
+  chart.setOption({
+    animation: false,
+    grid: { left: 60, right: 18, top: 18, bottom: 34 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(20,25,34,.96)',
+      borderColor: '#232a36',
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: { color: '#e8ebf1', fontSize: 12 },
+      axisPointer: { type: 'line', lineStyle: { color: '#3a4455', type: 'dashed' } },
+      formatter: params => {
+        const i = params[0].dataIndex;
+        const p = points[i];
+        const chg = p.p - prevClose;
+        const pct = (chg / prevClose) * 100;
+        const c   = chg >= 0 ? UP : DOWN;
+        return `<div style="line-height:1.7">
+          <div style="color:#7d8798;font-size:11px">${times[i]}</div>
+          <div>点位 <b style="color:${c}">${p.p.toFixed(2)}</b></div>
+          <div>涨跌 <b style="color:${c}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</b></div>
+        </div>`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: times,
+      boundaryGap: false,
+      axisLine:  { lineStyle: { color: '#232a36' } },
+      axisTick:  { show: false },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        interval: Math.max(0, Math.floor(times.length / 5) - 1),
+        margin: 10
+      },
+      splitLine: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      min: prevClose - range,
+      max: prevClose + range,
+      axisLine:  { show: false },
+      axisTick:  { show: false },
+      splitLine: { lineStyle: { color: '#191f28' } },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        margin: 10,
+        formatter: v => v.toFixed(2)
+      }
+    },
+    series: [{
+      type: 'line',
+      data: prices,
+      showSymbol: false,
+      symbol: 'none',
+      sampling: 'lttb',
+      lineStyle: { color, width: 1.6 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: hexA(color, 0.30) },
+          { offset: 1, color: hexA(color, 0.01) }
+        ])
+      },
+      markLine: {
+        silent: true,
+        symbol: 'none',
+        animation: false,
+        data: [{ yAxis: prevClose }],
+        lineStyle: { color: '#4a5464', type: 'dashed', width: 1 },
+        label: { show: false }
+      }
+    }]
+  }, true);
+}
+
+/* =========================================================
+   3. K线数据（含成交量，供 K线图 + 成交量图共用）
+   ========================================================= */
+async function ensureKlineData(force = false) {
+  if (!force && klineRows && klineRows.length) return klineRows;
+  if (klineLoading) return klineRows;
+
+  klineLoading = true;
+  try {
+    await loadScript(
+      `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?_var=__klineData&param=${CODE},day,,,${KLINE_DAYS},qfq&_t=${Date.now()}`
+    );
+
+    const d    = window.__klineData;
+    const node = d && d.data && d.data[CODE];
+    if (!node) throw new Error('K线数据为空');
+
+    const rows = node.qfqday || node.day || [];
+    if (!rows.length) throw new Error('K线数据为空');
+
+    klineRows = rows;
+    return klineRows;
+  } finally {
+    klineLoading = false;
+  }
+}
+
+/* =========================================================
+   4. 日K图（MA5 / MA10 / MA20 / MA90）
+   ========================================================= */
+function renderKlineChart() {
+  if (!klineRows) return;
+
+  const dates   = klineRows.map(r => r[0]);
+  const candles = klineRows.map(r => [
+    parseFloat(r[1]),   // open
+    parseFloat(r[2]),   // close
+    parseFloat(r[4]),   // low
+    parseFloat(r[3])    // high
+  ]);
+  const closes = candles.map(c => c[1]);
+
+  const ma = (n) => closes.map((_, i) => {
+    if (i < n - 1) return '-';
+    let s = 0;
+    for (let k = i - n + 1; k <= i; k++) s += closes[k];
+    return +(s / n).toFixed(2);
+  });
+
+  chart.setOption({
+    animation: false,
+    legend: {
+      data: ['MA5', 'MA10', 'MA20', 'MA90'],
+      top: 2,
+      right: 14,
+      itemWidth: 14,
+      itemHeight: 2,
+      itemGap: 10,
+      textStyle: { color: '#7d8798', fontSize: 11 }
+    },
+    grid: { left: 58, right: 18, top: 34, bottom: 34 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(20,25,34,.96)',
+      borderColor: '#232a36',
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: { color: '#e8ebf1', fontSize: 12 },
+      axisPointer: { type: 'cross', lineStyle: { color: '#3a4455', type: 'dashed' } },
+      formatter: params => {
+        const i = params[0].dataIndex;
+        const c = candles[i];
+        const prev = i > 0 ? candles[i - 1][1] : c[0];
+        const chg = c[1] - prev;
+        const pct = prev ? (chg / prev) * 100 : 0;
+        const col = chg >= 0 ? UP : DOWN;
+
+        let maTxt = '';
+        const maKeys = [
+          { key: 'MA5',  color: '#f0b90b' },
+          { key: 'MA10', color: '#4a90d9' },
+          { key: 'MA20', color: '#b06ef5' },
+          { key: 'MA90', color: '#5ad8a6' }
+        ];
+        maKeys.forEach(m => {
+          const s = params.find(p => p.seriesName === m.key);
+          if (s && s.value !== '-' && s.value !== undefined) {
+            maTxt += `<span style="color:${m.color};margin-right:8px">${m.key} ${(+s.value).toFixed(2)}</span>`;
+          }
+        });
+
+        return `<div style="line-height:1.75">
+          <div style="color:#7d8798;font-size:11px">${dates[i]}</div>
+          <div>开 <b>${c[0].toFixed(2)}</b>&nbsp;&nbsp;高 <b style="color:${UP}">${c[3].toFixed(2)}</b></div>
+          <div>低 <b style="color:${DOWN}">${c[2].toFixed(2)}</b>&nbsp;&nbsp;收 <b style="color:${col}">${c[1].toFixed(2)}</b></div>
+          <div>涨跌 <b style="color:${col}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)</b></div>
+          <div style="margin-top:4px;font-size:11px">${maTxt}</div>
+        </div>`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      boundaryGap: true,
+      axisLine:  { lineStyle: { color: '#232a36' } },
+      axisTick:  { show: false },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        margin: 10,
+        formatter: v => v.slice(2).replace(/-/g, '/')
+      }
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+      axisLine:  { show: false },
+      axisTick:  { show: false },
+      splitLine: { lineStyle: { color: '#191f28' } },
+      axisLabel: { color: '#6b7280', fontSize: 11, margin: 10 }
+    },
+    dataZoom: [
+      { type: 'inside', start: 60, end: 100 },
+      {
+        type: 'slider', start: 60, end: 100, height: 16, bottom: 6,
+        borderColor: '#232a36',
+        fillerColor: 'rgba(74,144,217,.12)',
+        handleStyle: { color: '#3a4455' },
+        textStyle: { color: '#6b7280', fontSize: 10 },
+        brushSelect: false
+      }
+    ],
+    series: [
+      {
+        name: 'K线',
+        type: 'candlestick',
+        data: candles,
+        barMaxWidth: 12,
+        itemStyle: {
+          color: UP,
+          color0: DOWN,
+          borderColor: UP,
+          borderColor0: DOWN
+        }
+      },
+      { name: 'MA5',  type: 'line', data: ma(5),  smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#f0b90b', opacity: .9 } },
+      { name: 'MA10', type: 'line', data: ma(10), smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#4a90d9', opacity: .9 } },
+      { name: 'MA20', type: 'line', data: ma(20), smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#b06ef5', opacity: .9 } },
+      { name: 'MA90', type: 'line', data: ma(90), smooth: true, showSymbol: false, lineStyle: { width: 1.2, color: '#5ad8a6', opacity: .95 } }
+    ]
+  }, true);
+}
+
+/* =========================================================
+   5. 成交量图 + 历史标记
+   ---------------------------------------------------------
+   标记逻辑：
+   ① 150日最低量：最近 150 个交易日中成交量最小的那天
+   ② 高倍放量：当日量 ≥ 前5日均量 × VOL_SURGE_RATIO（取倍数最高的前 5 个）
+   ========================================================= */
+function renderVolumeChart() {
+  if (!klineRows || klineRows.length < 5) return;
+
+  volChart.hideLoading();
+
+  const total = klineRows.length;
+  const startIdx = Math.max(0, total - VOL_SHOW_DAYS);
+
+  /* 全量成交量数组 */
+  const allVols = klineRows.map(r => {
+    const v = parseFloat(r[5]);
+    return Number.isFinite(v) ? v : 0;
+  });
+
+  /* 展示区间切片 */
+  const showDates = [];
+  const showVols  = [];
+  const showUp    = [];
+
+  for (let i = startIdx; i < total; i++) {
+    const r = klineRows[i];
+    showDates.push(r[0]);
+    showVols.push(allVols[i]);
+    showUp.push(parseFloat(r[2]) >= parseFloat(r[1]));
+  }
+
+  /* ---------- 计算历史标记 ---------- */
+  const marks = [];
+
+  /* ① 150 日最低量 */
+  const lookback = Math.min(150, total);
+  let minIdx = total - lookback;
+  for (let i = total - lookback; i < total; i++) {
+    if (allVols[i] < allVols[minIdx]) minIdx = i;
+  }
+  if (minIdx >= startIdx && allVols[minIdx] > 0) {
+    const li = minIdx - startIdx;
+    marks.push({
+      li,
+      vol: showVols[li],
+      label: '150日地量',
+      color: DOWN
+    });
+  }
+
+  /* ② 高倍放量：当日量 / 前5日均量 */
+  const surges = [];
+  for (let i = startIdx; i < total; i++) {
+    if (i < 5) continue;
+    let sum = 0;
+    for (let k = i - 5; k < i; k++) sum += allVols[k];
+    const avg5 = sum / 5;
+    if (avg5 <= 0) continue;
+    const ratio = allVols[i] / avg5;
+    if (ratio >= VOL_SURGE_RATIO) {
+      surges.push({ i, ratio, vol: allVols[i] });
+    }
+  }
+  surges.sort((a, b) => b.ratio - a.ratio);
+  surges.slice(0, 5).forEach(s => {
+    const li = s.i - startIdx;
+    marks.push({
+      li,
+      vol: showVols[li],
+      label: s.ratio.toFixed(1) + 'x 放量',
+      color: UP
+    });
+  });
+
+  /* ---------- markPoint 数据 ---------- */
+  const markData = marks.map(m => ({
+    coord: [showDates[m.li], m.vol],
+    value: m.vol,
+    symbolSize: 7,
+    itemStyle: {
+      color: m.color,
+      borderColor: '#0b0e13',
+      borderWidth: 1.5
+    },
+    label: {
+      show: true,
+      formatter: m.label,
+      position: 'top',
+      distance: 9,
+      color: m.color,
+      fontSize: 10,
+      fontWeight: 600,
+      backgroundColor: 'rgba(11,14,19,.9)',
+      padding: [3, 6],
+      borderRadius: 4,
+      borderColor: m.color,
+      borderWidth: 1
+    }
+  }));
+
+  /* ---------- 渲染 ---------- */
+  volChart.setOption({
+    animation: true,
+    animationDuration: 420,
+    animationEasing: 'cubicOut',
+    grid: { left: 58, right: 18, top: 34, bottom: 28 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,.04)' } },
+      backgroundColor: 'rgba(20,25,34,.96)',
+      borderColor: '#232a36',
+      borderWidth: 1,
+      padding: [9, 13],
+      textStyle: { color: '#e8ebf1', fontSize: 12 },
+      formatter: params => {
+        const p  = params[0];
+        const li = p.dataIndex;
+        const i  = startIdx + li;
+        const r  = klineRows[i];
+        const open  = parseFloat(r[1]);
+        const close = parseFloat(r[2]);
+        const pct   = open ? ((close - open) / open * 100) : 0;
+        const col   = pct >= 0 ? UP : DOWN;
+        const vol   = showVols[li];
+
+        /* 量比（相对前5日均量） */
+        let ratioTxt = '';
+        if (i >= 5) {
+          let sum = 0;
+          for (let k = i - 5; k < i; k++) sum += allVols[k];
+          const avg5 = sum / 5;
+          if (avg5 > 0) {
+            const ratio = vol / avg5;
+            const rCol  = ratio >= VOL_SURGE_RATIO ? UP : '#7d8798';
+            ratioTxt = `<div style="font-size:11px;color:${rCol}">量比(vs 5日均量) ${ratio.toFixed(2)}x</div>`;
+          }
+        }
+
+        /* 是否命中标记 */
+        const hit = marks.find(m => m.li === li);
+        const hitTxt = hit
+          ? `<div style="color:${hit.color};font-size:11px;font-weight:600;margin-top:2px">★ ${hit.label}</div>`
+          : '';
+
+        return `<div style="line-height:1.7">
+          <div style="color:#7d8798;font-size:11px">${showDates[li]}</div>
+          <div>成交量 <b>${fmtVolUnit(vol)}手</b></div>
+          <div>涨跌 <b style="color:${col}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</b></div>
+          ${ratioTxt}
+          ${hitTxt}
+        </div>`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: showDates,
+      boundaryGap: true,
+      axisLine:  { lineStyle: { color: '#232a36' } },
+      axisTick:  { show: false },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        margin: 10,
+        interval: Math.max(0, Math.ceil(showDates.length / 7) - 1),
+        formatter: v => v.slice(5)
+      },
+      splitLine: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine:  { show: false },
+      axisTick:  { show: false },
+      splitLine: { lineStyle: { color: '#191f28' } },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        margin: 10,
+        formatter: v => fmtVolUnit(v)
+      }
+    },
+    series: [{
+      type: 'bar',
+      data: showVols.map((v, i) => ({
+        value: v,
+        itemStyle: {
+          color: showUp[i] ? UP : DOWN,
+          opacity: 0.72,
+          borderRadius: [2, 2, 0, 0]
+        }
+      })),
+      barWidth: '58%',
+      markPoint: {
+        silent: true,
+        symbol: 'circle',
+        animation: false,
+        data: markData
+      }
+    }]
+  }, true);
+
+  $('volTime').textContent =
+    '最近 ' + showVols.length + ' 个交易日 · 更新于 ' +
+    new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+/* =========================================================
+   6. 宽基指数 · 近90日涨跌幅
+   ========================================================= */
+async function fetch90dForIndex(code) {
+  const varName = '__kl_' + code;
+  await loadScript(
+    `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?_var=${varName}&param=${code},day,,,90,qfq&_t=${Date.now()}`
+  );
+
+  const d    = window[varName];
+  const node = d && d.data && d.data[code];
+  if (!node) return { changePct90: null };
+
+  const rows = node.qfqday || node.day || [];
+  if (rows.length < 2) return { changePct90: null };
+
+  const first = parseFloat(rows[0][2]);
+  const last  = parseFloat(rows[rows.length - 1][2]);
+
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) {
+    return { changePct90: null };
+  }
+
+  return {
+    changePct90: ((last - first) / first) * 100,
+    lastClose: last
+  };
+}
+
+async function refreshIndexOverview(force = false) {
+  /* 批量实时行情 */
+  const codes = INDICES.map(i => i.code).join(',');
+  await loadScript(`https://qt.gtimg.cn/q=${codes}&_t=${Date.now()}`);
+
+  const quoteMap = {};
+  INDICES.forEach(idx => {
+    const raw = window['v_' + idx.code];
+    if (!raw) return;
+    const p = String(raw).split('~');
+    const price = num(p[3]);
+    let changePct = num(p[32]);
+    if (changePct === null && price !== null) {
+      const prev = num(p[4]);
+      if (prev) changePct = ((price - prev) / prev) * 100;
+    }
+    quoteMap[idx.code] = { price, changePct };
+  });
+
+  /* 90日涨跌幅 */
+  const now    = Date.now();
+  const need90 = force || !indexBarData || now - lastIndex90Ts > INDEX90_MS;
+
+  if (need90) {
+    lastIndex90Ts = now;
+
+    const results = await Promise.all(
+      INDICES.map(idx => fetch90dForIndex(idx.code).catch(() => null))
+    );
+
+    indexBarData = INDICES.map((idx, i) => {
+      const r = results[i] || {};
+      const q = quoteMap[idx.code] || {};
+      return {
+        code: idx.code,
+        name: idx.name,
+        changePct90: (r.changePct90 !== undefined && r.changePct90 !== null)
+          ? r.changePct90 : null,
+        price: (q.price !== undefined && q.price !== null) ? q.price : r.lastClose,
+        changePct: q.changePct !== undefined ? q.changePct : null
+      };
+    }).filter(d => d.changePct90 !== null);
+  } else {
+    indexBarData.forEach(d => {
+      const q = quoteMap[d.code];
+      if (!q) return;
+      if (q.price !== null && q.price !== undefined) d.price = q.price;
+      if (q.changePct !== undefined) d.changePct = q.changePct;
+    });
+  }
+
+  renderIndexBarChart();
+  $('indexBarTime').textContent =
+    '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function renderIndexBarChart() {
+  if (!indexBarData || !indexBarData.length) return;
+
+  indexChart.hideLoading();
+
+  const sorted = [...indexBarData].sort((a, b) => b.changePct90 - a.changePct90);
+  const names  = sorted.map(d => d.name);
+
+  const items = sorted.map(d => {
+    const v   = +d.changePct90.toFixed(2);
+    const col = v >= 0 ? UP : DOWN;
+    return {
+      value: v,
+      itemStyle: {
+        color: col,
+        borderRadius: v >= 0 ? [0, 3, 3, 0] : [3, 0, 0, 3]
+      },
+      label: {
+        position: v >= 0 ? 'right' : 'left',
+        color: col
+      }
+    };
+  });
+
+  indexChart.setOption({
+    animation: true,
+    animationDuration: 520,
+    animationEasing: 'cubicOut',
+    grid: { left: 88, right: 72, top: 14, bottom: 28 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,.035)' } },
+      backgroundColor: 'rgba(20,25,34,.96)',
+      borderColor: '#232a36',
+      borderWidth: 1,
+      padding: [9, 13],
+      textStyle: { color: '#e8ebf1', fontSize: 12 },
+      formatter: params => {
+        const p = params[0];
+        const d = sorted[p.dataIndex];
+        const c90    = d.changePct90;
+        const c90Col = c90 >= 0 ? UP : DOWN;
+        const cDay   = d.changePct;
+        const cDayCol = cDay > 0 ? UP : cDay < 0 ? DOWN : FLAT;
+        return `<div style="line-height:1.8">
+          <div style="font-weight:600;margin-bottom:3px">${d.name}</div>
+          <div>近90日 <b style="color:${c90Col}">${c90 >= 0 ? '+' : ''}${c90.toFixed(2)}%</b></div>
+          <div>当日　 <b style="color:${cDayCol}">${cDay === null || cDay === undefined ? '--' : (cDay >= 0 ? '+' : '') + cDay.toFixed(2) + '%'}</b></div>
+          <div style="color:#7d8798;font-size:11px">点位 ${d.price !== null && d.price !== undefined ? d.price.toFixed(2) : '--'}</div>
+        </div>`;
+      }
+    },
+    xAxis: {
+      type: 'value',
+      axisLine:  { show: false },
+      axisTick:  { show: false },
+      splitLine: { lineStyle: { color: '#191f28' } },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        formatter: v => v + '%'
+      }
+    },
+    yAxis: {
+      type: 'category',
+      data: names,
+      inverse: true,
+      axisLine:  { show: false },
+      axisTick:  { show: false },
+      axisLabel: {
+        color: '#a8b0bd',
+        fontSize: 12,
+        margin: 12
+      }
+    },
+    series: [{
+      type: 'bar',
+      data: items,
+      barWidth: 13,
+      label: {
+        show: true,
+        formatter: p => (p.value >= 0 ? '+' : '') + p.value.toFixed(2) + '%',
+        fontSize: 11,
+        fontWeight: 500
+      }
+    }]
+  }, true);
+}
+
+/* =========================================================
+   7. 权重股资金流向
+   ========================================================= */
+async function fetchFundFlow() {
+  const codes = WEIGHT_STOCKS.map(s => 'ff_' + s.code).join(',');
+  await loadScript(`https://qt.gtimg.cn/q=${codes}&_t=${Date.now()}`);
+
+  fundData = WEIGHT_STOCKS.map(stock => {
+    const raw  = window['v_ff_' + stock.code];
+    const item = { ...stock };
+
+    if (raw) {
+      const p = String(raw).split('~');
+      item.mainIn     = num(p[1]);
+      item.mainOut    = num(p[2]);
+      item.mainNet    = num(p[3]);
+      item.mainNetPct = num(p[4]);
+      item.retailNet  = num(p[7]);
+      item.totalNet   = num(p[12]);
+    }
+    return item;
+  });
+
+  try {
+    const qCodes = WEIGHT_STOCKS.map(s => s.code).join(',');
+    await loadScript(`https://qt.gtimg.cn/q=${qCodes}&_t=${Date.now()}`);
+    fundData.forEach(item => {
+      const raw = window['v_' + item.code];
+      if (raw) {
+        const p = String(raw).split('~');
+        item.price     = num(p[3]);
+        item.changePct = num(p[32]);
+        if (item.changePct === null && item.price !== null) {
+          const prev = num(p[4]);
+          if (prev) item.changePct = ((item.price - prev) / prev) * 100;
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('个股行情获取失败：', e.message);
+  }
+
+  renderFundTable();
+}
+
+function renderFundTable() {
+  const tbody = $('fundBody');
+  if (!fundData || !fundData.length) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="5">暂无数据</td></tr>';
+    return;
+  }
+
+  const maxAbs = Math.max(...fundData.map(d => Math.abs(d.mainNet || 0)), 1);
+
+  const totalMainNet = fundData.reduce((s, d) => s + (d.mainNet || 0), 0);
+  const inCount      = fundData.filter(d => (d.mainNet || 0) > 0).length;
+  const outCount     = fundData.filter(d => (d.mainNet || 0) < 0).length;
+
+  const sumColor = totalMainNet > 0 ? 'var(--up)'
+                 : totalMainNet < 0 ? 'var(--down)'
+                 : 'var(--muted)';
+
+  $('fundSummary').innerHTML = `
+    <span>净流入 <b style="color:${sumColor}">${fmtFlow(totalMainNet)}</b></span>
+    <span>流入 <b style="color:var(--up)">${inCount}</b> / 流出 <b style="color:var(--down)">${outCount}</b></span>
+  `;
+
+  $('fundTime').textContent =
+    '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+
+  tbody.innerHTML = fundData.map(d => {
+    const chgCls  = d.changePct > 0 ? 'up' : d.changePct < 0 ? 'down' : 'flat';
+    const flowCls = (d.mainNet || 0) > 0 ? 'up' : (d.mainNet || 0) < 0 ? 'down' : 'flat';
+    const flowW   = Math.max(2, (Math.abs(d.mainNet || 0) / maxAbs) * 56);
+    const flowDir = (d.mainNet || 0) >= 0 ? 'in' : 'out';
+
+    return `<tr>
+      <td>
+        <div class="stock-name">
+          <span class="nm">${d.name}</span>
+          <span class="cd">${d.code.replace(/^(sh|sz|bj)/, '')}</span>
+        </div>
+      </td>
+      <td><span class="weight-tag">${d.weight.toFixed(2)}%</span></td>
+      <td>${fmt(d.price, 2)}</td>
+      <td class="${chgCls}">${fmtSigned(d.changePct, 2)}%</td>
+      <td>
+        <div class="flow-bar-wrap">
+          <span class="flow-val ${flowCls}">${fmtFlow(d.mainNet)}</span>
+          <span class="flow-bar ${flowDir}" style="width:${flowW}px"></span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* =========================================================
+   Tab 切换
+   ========================================================= */
+document.querySelectorAll('.tab').forEach(el => {
+  el.addEventListener('click', async () => {
+    const tab = el.dataset.tab;
+    if (tab === currentTab) return;
+    currentTab = tab;
+
+    document.querySelectorAll('.tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.tab === tab)
+    );
+
+    if (tab === 'minute') {
+      if (minutePoints) renderMinuteChart();
+      else chart.clear();
+    } else {
+      if (klineRows) {
+        renderKlineChart();
+      } else {
+        try {
+          chart.showLoading({
+            text: '加载中',
+            color: '#4a90d9',
+            textColor: '#7d8798',
+            maskColor: 'rgba(20,25,34,.6)',
+            fontSize: 13
+          });
+          await ensureKlineData();
+          chart.hideLoading();
+          if (klineRows) renderKlineChart();
+        } catch (e) {
+          console.error(e);
+          chart.hideLoading();
+          chart.clear();
+          chart.setOption({
+            title: {
+              text: 'K线加载失败：' + e.message,
+              left: 'center', top: 'middle',
+              textStyle: { color: '#7d8798', fontSize: 13, fontWeight: 'normal' }
+            }
+          });
+        }
+      }
+    }
+  });
+});
+
+/* =========================================================
+   状态显示
+   ========================================================= */
+function setStatus(state, text) {
+  const dot = $('dot');
+  dot.className = 'dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+  $('statusText').textContent = text;
+}
+
+/* =========================================================
+   轮询主循环
+   ========================================================= */
+async function tick(force = false) {
+  if (busy) return;
+  if (!force && document.hidden) return;
+
+  busy = true;
+  const btn = $('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '刷新中…';
+
+  try {
+    // 科创50 实时行情
+    await fetchQuote();
+
+    // 宽基指数（含90日）
+    try {
+      await refreshIndexOverview(force);
+    } catch (e) {
+      console.warn('宽基指数刷新失败：', e.message);
+    }
+
+    const now = Date.now();
+
+    // K线数据（成交量板块依赖）
+    if (force || !klineRows || now - lastKlineTs > KLINE_MS) {
+      lastKlineTs = now;
+      try {
+        await ensureKlineData(true);
+        if (klineRows) {
+          renderVolumeChart();
+          if (currentTab === 'kline') renderKlineChart();
+        }
+      } catch (e) {
+        console.warn('K线数据刷新失败：', e.message);
+        volChart.hideLoading();
+      }
+    }
+
+    // 分时
+    if (force || now - lastMinuteTs > MINUTE_MS) {
+      lastMinuteTs = now;
+      try { await fetchMinute(); } catch (e) { console.warn('分时刷新失败：', e.message); }
+    }
+
+    // 资金流向
+    if (force || now - lastFundTs > FUND_MS) {
+      lastFundTs = now;
+      try { await fetchFundFlow(); } catch (e) { console.warn('资金流向刷新失败：', e.message); }
+    }
+
+    setStatus('ok', '实时 · 每 ' + (QUOTE_MS / 1000) + ' 秒更新');
+  } catch (e) {
+    console.error(e);
+    setStatus('err', '连接异常，重试中…');
+  } finally {
+    busy = false;
+    btn.disabled = false;
+    btn.textContent = '手动刷新';
+  }
+}
+
+$('btnRefresh').addEventListener('click', () => tick(true));
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) tick();
+});
+
+/* =========================================================
+   启动
+   ========================================================= */
+(async function init() {
+  setStatus('', '连接中…');
+  await tick(true);
+  setInterval(tick, QUOTE_MS);
+})();
+</script>
+</body>
+</html>
